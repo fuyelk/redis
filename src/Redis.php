@@ -37,8 +37,10 @@ class Redis
     {
         if (is_file(self::$CONFIG_FILE)) {
             $data = file_get_contents(self::$CONFIG_FILE);
-            if (!empty($data)) {
-                return json_decode($data, true);
+            if (!empty($data) && $config = json_decode($data, true)) {
+                if (md5(__DIR__) == ($config['prefix_validate'] ?? '')) {
+                    return $config;
+                }
             }
         }
         return self::setConfig();
@@ -60,6 +62,7 @@ class Redis
             'expire' => 0,          // 默认数据有效期（秒）
             'persistent' => false,  // 持久化
             'prefix' => substr(md5(microtime() . mt_rand(1000, 9999)), 0, 6) . '_', // 键前缀
+            'prefix_validate' => md5(__DIR__),// 通过项目路径识别是否需要重置配置
         ];
 
         if (!is_dir(dirname(self::$CONFIG_FILE))) {
