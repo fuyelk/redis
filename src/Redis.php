@@ -339,6 +339,7 @@ class Redis
 
         // 获取锁成功
         if ($locked) {
+            $this->sAdd('lock_list', $name);
             return true;
         }
 
@@ -361,6 +362,21 @@ class Redis
     {
         $this->del($name);
         return true;
+    }
+
+    /**
+     * 清理过期锁
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function clearLock()
+    {
+        $lockList = $this->sMembers('lock_list') ?: [];
+        foreach ($lockList as $item) {
+            if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
+                $this->del($item);
+                $this->sRem('lock_list', $item);
+            }
+        }
     }
 
     public function __call($method, $args)
