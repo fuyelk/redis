@@ -301,6 +301,23 @@ class Redis
     }
 
     /**
+     * 通过集合删除缓存
+     * @param string $setName 集合名
+     * @return int 完成数量
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function delBySet($setName = '')
+    {
+        $count = $this->sCard($setName) ?: 0;
+        $list = $this->sMembers($setName) ?: [];
+        foreach ($list as $item) {
+            $this->del($item);
+            $this->sRem($setName, $item);
+        }
+        return $count;
+    }
+
+    /**
      * 获取全部键
      * @param bool $all 是否查询全部键（不限制前缀前缀）
      * @return array
