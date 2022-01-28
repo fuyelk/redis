@@ -394,17 +394,21 @@ class Redis
 
     /**
      * 清理过期锁
+     * @return int
      * @author fuyelk <fuyelk@fuyelk.com>
      */
     public function clearLock()
     {
         $lockList = $this->sMembers('lock_list') ?: [];
+        $success = 0;
         foreach ($lockList as $item) {
             if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
                 $this->del($item);
+                $success++;
                 $this->sRem('lock_list', $item);
             }
         }
+        return $success;
     }
 
     public function __call($method, $args)
