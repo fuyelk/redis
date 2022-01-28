@@ -10,6 +10,17 @@ namespace fuyelk\redis;
  * @method int sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
  * @method int sMembers(string $key) 返回集合中的所有的成员
  * @method int sRem(string $key, string|mixed ...$member1) 移除集合中的一个或多个成员元素
+ * @method int|bool hSet(string $key, string $hashKey, string $value) 将哈希表 key 中的字段 field 的值设为 value
+ * @method bool hSetNx(string $key, string $hashKey, string $value) 只有在字段 field 不存在时，设置哈希表字段的值
+ * @method bool hMSet(string $key, array $hashKeys) 只同时将多个 field->value 键值对设置到哈希表 key 中
+ * @method string|false hGet(string $key, string $hashKey) 获取存储在哈希表 key 中指定字段的值
+ * @method array hMGet(string $key, array $hashKey) 获取哈希表 key 中所有给定的字段的值
+ * @method int|false hDel(string $key, string $hashKey1, string ...$otherHashKeys) 从哈希表 key 中删除一个或多个字段
+ * @method int|false hLen(string $key) 获取哈希表 key 中字段的数量
+ * @method array hKeys(string $key) 获取所有哈希表 key 中的字段
+ * @method array hVals(string $key) 获取哈希表 key 中所有值
+ * @method array hGetAll(string $key) 获取在哈希表 key 中所有字段和值
+ * @method bool hExists(string $key, string $hashKey) 获查看哈希表 key 中指定的字段是否存在
  * @author fuyelk <fuyelk@fuyelk.com>
  */
 class Redis
