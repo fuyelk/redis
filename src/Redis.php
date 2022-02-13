@@ -44,7 +44,7 @@ class Redis
      * 获取redis配置
      * @return array|mixed
      */
-    protected function getRedisConf()
+    public static function getRedisConf()
     {
         if (is_file(self::$CONFIG_FILE)) {
             $data = file_get_contents(self::$CONFIG_FILE);
@@ -96,7 +96,7 @@ class Redis
         if (!extension_loaded('redis')) {
             throw new RedisException('not support: redis');
         }
-        $this->options = $this->getRedisConf();
+        $this->options = self::getRedisConf();
         if (!empty($options)) {
             $this->options = array_merge($this->options, $options);
         }
