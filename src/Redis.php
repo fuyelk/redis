@@ -2,9 +2,17 @@
 
 namespace fuyelk\redis;
 
+use Exception;
+
 /**
  * Class Redis
  * @package fuyelk\redis
+ * @method int|bool lPush(string $key, string|mixed ...$value1) 从左侧加入列表
+ * @method mixed|bool lPop(string $key) 从左侧弹出数据
+ * @method int|bool rPush(string $key, string|mixed ...$value1) 从右侧加入列表
+ * @method mixed|bool rPop(string $key) 从右侧弹出数据
+ * @method int|bool lLen(string $key) 查询列表长度
+ * @method array lRange(string $key, int $start, int $end) 获取列表指定部分数据
  * @method int|bool sAdd(string $key, string|mixed ...$value1) 将一个或多个成员元素加入到集合中
  * @method int sCard(string $key) 返回集合中元素的数量
  * @method int sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
@@ -115,7 +123,7 @@ class Redis
             if (0 != $this->options['select']) {
                 $this->handler->select($this->options['select']);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new RedisException('Redis 连接失败');
         }
     }
@@ -134,6 +142,8 @@ class Redis
     /**
      * 转为可存数据
      * @param mixed $value 待存储的数据
+     * @return bool|float|int|string
+     * @author fuyelk <fuyelk@fuyelk.com>
      */
     protected function encode($value)
     {
@@ -143,7 +153,9 @@ class Redis
     /**
      * 解析数据
      * @param mixed $value redis返回数据
-     * @param string $default 默认值
+     * @param bool|mixed $default [默认值]
+     * @return bool|mixed
+     * @author fuyelk <fuyelk@fuyelk.com>
      */
     protected function decode($value, $default = false)
     {
@@ -153,7 +165,7 @@ class Redis
 
         try {
             $result = 0 === strpos($value, 'redis_serialize:') ? unserialize(substr($value, 16)) : $value;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return $default;
         }
 
@@ -212,82 +224,6 @@ class Redis
     public function dec($name, $value = 1)
     {
         return $this->handler->decrby($this->getKeyName($name), $value);
-    }
-
-    /**
-     * 从左侧加入列表
-     * @param string $name 数据名
-     * @param mixed $value 数据
-     * @return bool|int
-     */
-    public function lpush($name, $value)
-    {
-        return $this->handler->lPush($this->getKeyName($name), $this->encode($value));
-    }
-
-    /**
-     * 从左侧弹出数据
-     * @param string $name 数据名
-     * @param mixed $value 数据
-     * @return mixed
-     */
-    public function lpop($name)
-    {
-        $value = $this->handler->lPop($this->getKeyName($name));
-        return $this->decode($value);
-    }
-
-    /**
-     * 从右侧加入列表
-     * @param string $name 数据名
-     * @param mixed $value 数据
-     * @return bool|int
-     */
-    public function rpush($name, $value)
-    {
-        return $this->handler->rPush($this->getKeyName($name), $this->encode($value));
-    }
-
-    /**
-     * 从右侧弹出数据
-     * @param string $name 数据名
-     * @param mixed $value 数据
-     * @return mixed
-     */
-    public function rpop($name)
-    {
-        $value = $this->handler->rPop($this->getKeyName($name));
-        return $this->decode($value);
-    }
-
-    /**
-     * 查询列表长度
-     * @param string $name 数据名
-     * @return bool|int
-     */
-    public function llen($name)
-    {
-        return $this->handler->llen($this->getKeyName($name));
-    }
-
-    /**
-     * @return array
-     */
-    /**
-     * 获取列表指定部分数据
-     * @param string $name 数据名
-     * @param int $start
-     * @param int $end
-     * @return array
-     */
-    public function lrange($name, $start, $end)
-    {
-        $list = $this->handler->lRange($this->getKeyName($name), $start, $end);
-        $result = [];
-        foreach ($list as $item) {
-            $result[] = $this->decode($item);
-        }
-        return $result;
     }
 
     /**

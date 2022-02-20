@@ -18,30 +18,15 @@
     
     // 删除记录
     $redis->del('age'));
+
+    // 通过集合删除缓存
+    $redis->delBySet('users'));
     
     // 数值自增
     $redis->inc('money', 5));
     
     // 记录自减
     $redis->dec('money', 5));
-    
-    // 列表长度
-    $redis->llen('hobby'));
-    
-    // 左侧加入
-    $redis->lpush('hobby', 'Basketball'));
-    
-    // 左侧弹出
-    $redis->lpop('hobby'));
-    
-    // 右侧加入
-    $redis->rpush('hobby', 'football'));
-    
-    // 右侧弹出
-    $redis->rpop('hobby'));
-    
-    // 获取部分数据 ['golf','ping-pong','coding']
-    $redis->lrange('hobby', 2, 100));
     
     // 符合当前前缀全部键名
     $redis->->keys());
@@ -60,6 +45,8 @@
     
     // 解锁foo
     $redis->unlock('foo'));
-
+    
+    // 清理过期锁
+    $redis->clearLock());
     ...
 ```
