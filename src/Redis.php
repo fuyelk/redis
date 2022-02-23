@@ -265,24 +265,39 @@ class Redis
     }
 
     /**
+     * 删除全部数据
+     * @param bool $ignorePrefix 忽略前缀
+     * @return bool
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function delAll($ignorePrefix = false)
+    {
+        $dataList = $this->keys($ignorePrefix);
+        foreach ($dataList as $item) {
+            $this->handler->del($item);
+        }
+        return true;
+    }
+
+    /**
      * 获取全部键
-     * @param bool $all 是否查询全部键（不限制前缀前缀）
+     * @param bool $ignorePrefix 忽略前缀
      * @return array
      */
-    public function keys($all = false)
+    public function keys($ignorePrefix = false)
     {
-        return $this->handler->keys($all ? '*' : $this->getKeyName('*'));
+        return $this->handler->keys($ignorePrefix ? '*' : $this->getKeyName('*'));
     }
 
     /**
      * 获取全部数据
-     * @param bool $all 是否查询全部键（不限制前缀前缀）
+     * @param bool $ignorePrefix 忽略前缀
      * @return array
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function allData($all = false)
+    public function allData($ignorePrefix = false)
     {
-        $keys = $this->keys($all);
+        $keys = $this->keys($ignorePrefix);
         $ret = [];
         foreach ($keys as $key) {
             $ret[$key] = $this->handler->get($key);
