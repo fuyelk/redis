@@ -7,6 +7,7 @@ use Exception;
 /**
  * Class Redis
  * @package fuyelk\redis
+ * @method int|bool exists(string|string[] $key) 验证数据是否存在
  * @method int|bool lPush(string $key, string|mixed ...$value1) 从左侧加入列表
  * @method mixed|bool lPop(string $key) 从左侧弹出数据
  * @method int|bool rPush(string $key, string|mixed ...$value1) 从右侧加入列表
@@ -50,19 +51,21 @@ class Redis
 
     /**
      * 获取redis配置
+     * @param bool|string $key [配置名]
      * @return array|mixed
+     * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public static function getRedisConf()
+    public static function getRedisConf($key = false)
     {
+        // 验证配置文件的有效性
         if (is_file(self::$CONFIG_FILE)) {
             $data = file_get_contents(self::$CONFIG_FILE);
-            if (!empty($data) && $config = json_decode($data, true)) {
-                if (md5(__DIR__) == ($config['prefix_validate'] ?? '')) {
-                    return $config;
-                }
+            if (!empty($data) and $config = json_decode($data, true) and md5(__DIR__) == ($config['prefix_validate'] ?? '')) {
+                return $key ? ($config[$key] ?? null) : $config;
             }
         }
-        return self::setConfig();
+        $config = self::setConfig();
+        return $key ? ($config[$key] ?? null) : $config;
     }
 
     /**
@@ -76,7 +79,7 @@ class Redis
             'host' => '127.0.0.1',
             'port' => 6379,
             'password' => '',       // 密码
-            'select' => 0,          // 数据库标识
+            'db' => 0,              // 数据库标识
             'timeout' => 0,         // 连接超时时长
             'expire' => 0,          // 默认数据有效期（秒）
             'persistent' => false,  // 持久化
@@ -96,22 +99,24 @@ class Redis
 
     /**
      * Redis constructor.
-     * @param array $options ['host','port','password','select','timeout','expire','persistent','prefix']
+     * @param array $options ['host','port','password','db','timeout','expire','persistent','prefix']
      * @throws RedisException
      */
     public function __construct($options = [])
     {
         if (!extension_loaded('redis')) {
-            throw new RedisException('not support: redis');
+            throw new RedisException('不支持Redis扩展');
         }
+
         $this->options = self::getRedisConf();
         if (!empty($options)) {
             $this->options = array_merge($this->options, $options);
         }
+
         try {
             $this->handler = new \Redis;
             if ($this->options['persistent']) {
-                $this->handler->pconnect($this->options['host'], $this->options['port'], $this->options['timeout'], 'persistent_id_' . $this->options['select']);
+                $this->handler->pconnect($this->options['host'], $this->options['port'], $this->options['timeout'], 'persistent_id_' . $this->options['db']);
             } else {
                 $this->handler->connect($this->options['host'], $this->options['port'], $this->options['timeout']);
             }
@@ -120,11 +125,24 @@ class Redis
                 $this->handler->auth($this->options['password']);
             }
 
-            if (0 != $this->options['select']) {
-                $this->handler->select($this->options['select']);
+            if (0 != $this->options['db']) {
+                $this->handler->select($this->options['db']);
             }
         } catch (Exception $e) {
             throw new RedisException('Redis 连接失败');
+        }
+
+        // 清理锁
+        if (!$this->exists(md5('lock_clear_lock'))) {
+            $lockList = $this->sMembers('lock_list') ?: [];
+            foreach ($lockList as $item) {
+                // 清理已过期超过1分钟的锁
+                if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
+                    $this->del($item);
+                    $this->sRem('lock_list', $item);
+                }
+            }
+            $this->set(md5('lock_clear_lock'), 'This is fuyelk/redis sign to clean the lock', 10);
         }
     }
 
@@ -248,7 +266,7 @@ class Redis
     }
 
     /**
-     * 通过集合删除缓存
+     * 通过集合删除数据
      * @param string $setName 集合名
      * @return int 完成数量
      * @author fuyelk <fuyelk@fuyelk.com>
@@ -280,7 +298,7 @@ class Redis
     }
 
     /**
-     * 获取全部键
+     * 获取全部数据名
      * @param bool $ignorePrefix 忽略前缀
      * @return array
      */
@@ -341,25 +359,6 @@ class Redis
     {
         $this->del($name);
         return true;
-    }
-
-    /**
-     * 清理过期锁
-     * @return int
-     * @author fuyelk <fuyelk@fuyelk.com>
-     */
-    public function clearLock()
-    {
-        $lockList = $this->sMembers('lock_list') ?: [];
-        $success = 0;
-        foreach ($lockList as $item) {
-            if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
-                $this->del($item);
-                $success++;
-                $this->sRem('lock_list', $item);
-            }
-        }
-        return $success;
     }
 
     public function __call($method, $args)
