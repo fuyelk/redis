@@ -134,6 +134,7 @@ class Redis
 
         // 清理锁
         if (!$this->exists(md5('lock_clear_lock'))) {
+            $this->set(md5('lock_clear_lock'), 'This is fuyelk/redis sign to clean the lock', 600); // 定时10分钟
             $lockList = $this->sMembers('lock_list') ?: [];
             foreach ($lockList as $item) {
                 // 清理已过期超过1分钟的锁
@@ -142,7 +143,6 @@ class Redis
                     $this->sRem('lock_list', $item);
                 }
             }
-            $this->set(md5('lock_clear_lock'), 'This is fuyelk/redis sign to clean the lock', 10);
         }
     }
 
