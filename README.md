@@ -42,7 +42,7 @@
     $redis->dec('money', 5));
     
     // 符合当前前缀全部键名
-    $redis->->keys());
+    $redis->keys());
     
     // Redis缓存中的全部键名
     $redis->keys(true));

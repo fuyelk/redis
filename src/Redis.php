@@ -83,7 +83,7 @@ class Redis
             'timeout' => 0,         // 连接超时时长
             'expire' => 0,          // 默认数据有效期（秒）
             'persistent' => false,  // 持久化
-            'prefix' => substr(md5(microtime() . mt_rand(1000, 9999)), 0, 6) . '_', // 键前缀
+            'prefix' => substr(md5(microtime() . mt_rand(1000, 9999)), 0, 6) . ':', // 键前缀
             'prefix_validate' => md5(__DIR__),// 通过项目路径识别是否需要重置配置
         ];
 
@@ -133,14 +133,14 @@ class Redis
         }
 
         // 清理锁
-        if (!$this->exists(md5('lock_clear_lock'))) {
-            $this->set(md5('lock_clear_lock'), 'This is fuyelk/redis sign to clean the lock', 600); // 定时10分钟
-            $lockList = $this->sMembers('lock_list') ?: [];
+        if (!$this->exists(md5('lock:lock_cleared'))) {
+            $this->set(md5('lock:lock_cleared'), 'This is the fuyelk/redis lock cleared flag', 600); // 定时10分钟
+            $lockList = $this->sMembers('lock:all_locks') ?: [];
             foreach ($lockList as $item) {
                 // 清理已过期超过1分钟的锁
                 if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
                     $this->del($item);
-                    $this->sRem('lock_list', $item);
+                    $this->sRem('lock:all_locks', $item);
                 }
             }
         }
@@ -332,16 +332,17 @@ class Redis
      */
     public function lock($name, $expire = 5)
     {
+        $name = 'lock:' . $name;
         $locked = $this->setnx($name, time() + $expire);
 
         // 获取锁成功
         if ($locked) {
-            $this->sAdd('lock_list', $name);
+            $this->sAdd('lock:all_locks', $name);
             return true;
         }
 
         // 锁已过期则删除锁，重新获取
-        if (time() > $this->get($name)) {
+        if (is_numeric($this->get($name)) && $this->get($name) < time()) {
             $this->del($name);
             return $this->setnx($name, time() + $expire);
         }
@@ -357,7 +358,7 @@ class Redis
      */
     public function unlock($name)
     {
-        $this->del($name);
+        $this->del('lock:' . $name);
         return true;
     }
 
