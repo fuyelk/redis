@@ -17,7 +17,7 @@ use Exception;
  * @method int|bool sAdd(string $key, string|mixed ...$value1) 将一个或多个成员元素加入到集合中
  * @method int sCard(string $key) 返回集合中元素的数量
  * @method int sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
- * @method int sMembers(string $key) 返回集合中的所有的成员
+ * @method array sMembers(string $key) 返回集合中的所有的成员
  * @method int sRem(string $key, string|mixed ...$member1) 移除集合中的一个或多个成员元素
  * @method int|bool hSet(string $key, string $hashKey, string $value) 将哈希表 key 中的字段 field 的值设为 value
  * @method bool hSetNx(string $key, string $hashKey, string $value) 只有在字段 field 不存在时，设置哈希表字段的值
@@ -128,13 +128,16 @@ class Redis
             if (0 != $this->options['db']) {
                 $this->handler->select($this->options['db']);
             }
+
+            // 测试Redis连接
+            $this->handler->get('redis:test');
         } catch (Exception $e) {
             throw new RedisException('Redis 连接失败');
         }
 
         // 清理锁
         if (!$this->exists(md5('lock:lock_cleared'))) {
-            $this->set(md5('lock:lock_cleared'), 'This is the fuyelk/redis lock cleared flag', 600); // 定时10分钟
+            $this->set(md5('lock:lock_cleared'), 'This is the sign that fuyelk/redis lock has been cleared', 600); // 定时10分钟
             $lockList = $this->sMembers('lock:all_locks') ?: [];
             foreach ($lockList as $item) {
                 // 清理已过期超过1分钟的锁
