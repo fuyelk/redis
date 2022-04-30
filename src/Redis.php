@@ -269,6 +269,49 @@ class Redis
     }
 
     /**
+     * 订阅给定的一个或多个频道
+     * @param string[] $channels 频道名
+     * @param string|array $callback array($instance, 'method_name') 方法必须为public
+     * 该回调有3个参数：Redis实例，频道名，消息内容
+     *
+     * @return mixed|null
+     */
+    public function subscribe($channels, $callback)
+    {
+        $channels = array_map(function ($channel) {
+            return $this->getKeyName($channel);
+        }, $channels);
+        $this->handler->subscribe($channels, $callback);
+    }
+
+    /**
+     * 订阅一个或多个符合给定模式的频道
+     * @param array $patterns 模式 以 * 作为匹配符，比如 user* 匹配所有以 user 开头的频道( user.register，user.login，user.logout 等)
+     * @param string|array $callback array($instance, 'method_name') 方法必须为public
+     * 该回调有3个参数：Redis实例，模式，频道名，消息内容
+     *
+     * @return mixed|null
+     */
+    public function psubscribe($patterns, $callback)
+    {
+        $patterns = array_map(function ($pattern) {
+            return $this->getKeyName($pattern);
+        }, $patterns);
+        $this->handler->psubscribe($patterns, $callback);
+    }
+
+    /**
+     * 向频道发消息
+     * @param string $channel 频道
+     * @param string $message 消息内容
+     * @return mixed|null
+     */
+    public function publish($channel, $message)
+    {
+        $this->handler->publish($this->getKeyName($channel), $message);
+    }
+
+    /**
      * 通过集合删除数据
      * @param string $setName 集合名
      * @return int 完成数量
