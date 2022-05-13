@@ -60,7 +60,10 @@ class Redis
         // 验证配置文件的有效性
         if (is_file(self::$CONFIG_FILE)) {
             $data = file_get_contents(self::$CONFIG_FILE);
-            if (!empty($data) and $config = json_decode($data, true) and md5(__DIR__) == ($config['prefix_validate'] ?? '')) {
+            if (!empty($data) and $config = json_decode($data, true)) {
+                if (md5(__DIR__) != ($config['prefix_validate'] ?? '')) {
+                    $config = self::setConfig($config);
+                }
                 return $key ? ($config[$key] ?? null) : $config;
             }
         }
