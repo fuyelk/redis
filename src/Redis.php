@@ -73,19 +73,20 @@ class Redis
 
     /**
      * 创建配置文件
+     * @param $default
      * @return array
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    protected static function setConfig()
+    protected static function setConfig($default = [])
     {
         $config = [
-            'host' => '127.0.0.1',
-            'port' => 6379,
-            'password' => '',       // 密码
-            'db' => 0,              // 数据库标识
-            'timeout' => 0,         // 连接超时时长
-            'expire' => 0,          // 默认数据有效期（秒）
-            'persistent' => false,  // 持久化
+            'host' => $default['host'] ?? '127.0.0.1',
+            'port' => $default['port'] ?? 6379,
+            'password' => $default['password'] ?? '',       // 密码
+            'db' => $default['db'] ?? 0,                    // 数据库标识
+            'timeout' => $default['timeout'] ?? 0,          // 连接超时时长
+            'expire' => $default['expire'] ?? 0,            // 默认数据有效期（秒）
+            'persistent' => $default['persistent'] ?? false,// 持久化
             'prefix' => substr(md5(microtime() . mt_rand(1000, 9999)), 0, 6) . ':', // 键前缀
             'prefix_validate' => md5(__DIR__),// 通过项目路径识别是否需要重置配置
         ];
