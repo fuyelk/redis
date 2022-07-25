@@ -16,7 +16,7 @@ use Exception;
  * @method array lRange(string $key, int $start, int $end) 获取列表指定部分数据
  * @method int|bool sAdd(string $key, string|mixed ...$value1) 将一个或多个成员元素加入到集合中
  * @method int sCard(string $key) 返回集合中元素的数量
- * @method int sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
+ * @method bool sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
  * @method array sMembers(string $key) 返回集合中的所有的成员
  * @method int sRem(string $key, string|mixed ...$member1) 移除集合中的一个或多个成员元素
  * @method int|bool hSet(string $key, string $hashKey, string $value) 将哈希表 key 中的字段 field 的值设为 value
