@@ -172,7 +172,10 @@ class Redis
      */
     protected function encode($value)
     {
-        return is_scalar($value) ? $value : 'redis_serialize:' . serialize($value);
+        if (is_bool($value) || !is_scalar($value)) {
+            $value = 'redis_serialize:' . serialize($value);
+        }
+        return $value;
     }
 
     /**
@@ -187,14 +190,10 @@ class Redis
         if (is_null($value) || false === $value) {
             return $default;
         }
-
-        try {
-            $result = 0 === strpos($value, 'redis_serialize:') ? unserialize(substr($value, 16)) : $value;
-        } catch (Exception $e) {
-            return $default;
+        if (0 === strpos($value, 'redis_serialize:')) {
+            $value = unserialize(substr($value, 16));
         }
-
-        return $result;
+        return $value;
     }
 
     /**
