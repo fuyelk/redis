@@ -19,6 +19,11 @@ use Exception;
  * @method bool sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
  * @method array sMembers(string $key) 返回集合中的所有的成员
  * @method int sRem(string $key, string|mixed ...$member1) 移除集合中的一个或多个成员元素
+ * @method int zAdd(string $key, float|string|mixed $score1, string|float|midex $value1 = null, float|string|mixed $score2 = null, string|float|midex $value2 = null, float|string|mixed $scoreN = null, string|float|midex $valueN = null) 向有序集合添加一个或多个成员，或者更新已存在成员的分数
+ * @method int zRem(string $key, string|mixed $member1, string|mixed ...$otherMembers) 移除有序集合中的一个或多个成员
+ * @method int zCount(string $key, string $start, string $end) 计算在有序集合中指定区间分数的成员数量
+ * @method int zCard(string $key) 获取有序集合的成员数量
+ * @method float|bool zScore(string $key, string|mixed $member) 获取有序集中成员的分数值
  * @method int|bool hSet(string $key, string $hashKey, string $value) 将哈希表 key 中的字段 field 的值设为 value
  * @method bool hSetNx(string $key, string $hashKey, string $value) 只有在字段 field 不存在时，设置哈希表字段的值
  * @method bool hMSet(string $key, array $hashKeys) 只同时将多个 field->value 键值对设置到哈希表 key 中
@@ -30,6 +35,7 @@ use Exception;
  * @method array hVals(string $key) 获取哈希表 key 中所有值
  * @method array hGetAll(string $key) 获取在哈希表 key 中所有字段和值
  * @method bool hExists(string $key, string $hashKey) 获查看哈希表 key 中指定的字段是否存在
+ * @mixin \Redis
  * @author fuyelk <fuyelk@fuyelk.com>
  */
 class Redis
@@ -271,6 +277,31 @@ class Redis
         return $this->handler->del($this->getKeyName($name));
     }
 
+    /**
+     * 向有序集合中追加数据（分数为成员加入时的序号，第一个为0）
+     * @param string $key 键名
+     * @param string|float $value 值
+     * @return void
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function zAppend($key, $value)
+    {
+        $key = $this->getKeyName($key);
+        $this->handler->zAdd($key, $this->handler->zCard($key), $value);
+    }
+
+    /**
+     * 返回有序集合的全部成员（分数为成员加入时的序号，第一个为0）
+     * @param string $key 键名
+     * @return array
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function zMembers($key)
+    {
+        $key = $this->getKeyName($key);
+        return $this->handler->zRangeByScore($key, 0, $this->handler->zCard($key));
+    }
+    
     /**
      * 订阅给定的一个或多个频道
      * @param string[] $channels 频道名
