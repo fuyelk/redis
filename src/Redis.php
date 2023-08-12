@@ -19,7 +19,7 @@ use Exception;
  * @method bool sIsMember(string $key, string|mixed $value) 判断成员元素是否是集合的成员
  * @method array sMembers(string $key) 返回集合中的所有的成员
  * @method int sRem(string $key, string|mixed ...$member1) 移除集合中的一个或多个成员元素
- * @method int zAdd(string $key, float|string|mixed $score1, string|float|midex $value1 = null, float|string|mixed $score2 = null, string|float|midex $value2 = null, float|string|mixed $scoreN = null, string|float|midex $valueN = null) 向有序集合添加一个或多个成员，或者更新已存在成员的分数
+ * @method int zAdd(string $key, float|string|mixed $score1, string|float|mixed $value1 = null, float|string|mixed $score2 = null, string|float|mixed $value2 = null, float|string|mixed $scoreN = null, string|float|mixed $valueN = null) 向有序集合添加一个或多个成员，或者更新已存在成员的分数
  * @method int zRem(string $key, string|mixed $member1, string|mixed ...$otherMembers) 移除有序集合中的一个或多个成员
  * @method int zCount(string $key, string $start, string $end) 计算在有序集合中指定区间分数的成员数量
  * @method int zCard(string $key) 获取有序集合的成员数量
@@ -57,11 +57,11 @@ class Redis
 
     /**
      * 获取redis配置
-     * @param bool|string $key [配置名]
+     * @param string|null $key [配置名]
      * @return array|mixed
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public static function getRedisConf($key = false)
+    public static function getRedisConf(string $key = null)
     {
         // 验证配置文件的有效性
         if (is_file(self::$CONFIG_FILE)) {
@@ -79,11 +79,11 @@ class Redis
 
     /**
      * 创建配置文件
-     * @param $default
+     * @param array $default
      * @return array
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    protected static function setConfig($default = [])
+    protected static function setConfig(array $default = []): array
     {
         $config = [
             'host' => $default['host'] ?? '127.0.0.1',
@@ -108,11 +108,38 @@ class Redis
     }
 
     /**
+     * 建立连接
+     * @return void
+     * @throws \RedisException
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    private function connect()
+    {
+        $this->handler = new \Redis;
+        if ($this->options['persistent']) {
+            $this->handler->pconnect($this->options['host'], $this->options['port'], $this->options['timeout'], 'persistent_id_' . $this->options['db']);
+        } else {
+            $this->handler->connect($this->options['host'], $this->options['port'], $this->options['timeout']);
+        }
+
+        if ('' != $this->options['password']) {
+            $this->handler->auth($this->options['password']);
+        }
+
+        if (0 != $this->options['db']) {
+            $this->handler->select($this->options['db']);
+        }
+
+        // 测试Redis连接
+        $this->handler->get('redis:test');
+    }
+
+    /**
      * Redis constructor.
      * @param array $options ['host','port','password','db','timeout','expire','persistent','prefix']
      * @throws RedisException
      */
-    public function __construct($options = [])
+    public function __construct(array $options = [])
     {
         if (!extension_loaded('redis')) {
             throw new RedisException('不支持Redis扩展');
@@ -124,23 +151,7 @@ class Redis
         }
 
         try {
-            $this->handler = new \Redis;
-            if ($this->options['persistent']) {
-                $this->handler->pconnect($this->options['host'], $this->options['port'], $this->options['timeout'], 'persistent_id_' . $this->options['db']);
-            } else {
-                $this->handler->connect($this->options['host'], $this->options['port'], $this->options['timeout']);
-            }
-
-            if ('' != $this->options['password']) {
-                $this->handler->auth($this->options['password']);
-            }
-
-            if (0 != $this->options['db']) {
-                $this->handler->select($this->options['db']);
-            }
-
-            // 测试Redis连接
-            $this->handler->get('redis:test');
+            $this->connect();
         } catch (Exception $e) {
             throw new RedisException('Redis 连接失败');
         }
@@ -165,7 +176,7 @@ class Redis
      * @param string $name 数据名
      * @return string
      */
-    protected function getKeyName($name)
+    protected function getKeyName(string $name): string
     {
         return $this->options['prefix'] . $name;
     }
@@ -187,13 +198,13 @@ class Redis
     /**
      * 解析数据
      * @param mixed $value redis返回数据
-     * @param bool|mixed $default [默认值]
+     * @param mixed|null $default [默认值]
      * @return bool|mixed
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    protected function decode($value, $default = false)
+    protected function decode($value, $default = null)
     {
-        if (is_null($value) || false === $value) {
+        if (is_null($value) && !is_null($default)) {
             return $default;
         }
         if (0 === strpos($value, 'redis_serialize:')) {
@@ -206,18 +217,19 @@ class Redis
      * 写入数据
      * @param string $name 数据名
      * @param mixed $value 数据
-     * @param integer $expire 有效时间（秒）
+     * @param integer|null $expire 有效时间（秒）
      * @return boolean
+     * @throws RedisException
      */
-    public function set($name, $value, $expire = null)
+    public function set(string $name, $value, int $expire = null): bool
     {
         if (is_null($expire)) {
             $expire = $this->options['expire'];
         }
         if ($expire) {
-            $result = $this->handler->setex($this->getKeyName($name), $expire, $this->encode($value));
+            $result = $this->action('setex', [$this->getKeyName($name), $expire, $this->encode($value)]);
         } else {
-            $result = $this->handler->set($this->getKeyName($name), $this->encode($value));
+            $result = $this->action('set', [$this->getKeyName($name), $this->encode($value)]);
         }
         return $result;
     }
@@ -225,12 +237,13 @@ class Redis
     /**
      * 读取数据
      * @param string $name 数据名
-     * @param mixed $default 默认值
+     * @param mixed|null $default 默认值
      * @return mixed
+     * @throws RedisException
      */
-    public function get($name, $default = false)
+    public function get(string $name, $default = null)
     {
-        $value = $this->handler->get($this->getKeyName($name));
+        $value = $this->action('get', [$this->getKeyName($name)]);
         return $this->decode($value, $default);
     }
 
@@ -239,10 +252,11 @@ class Redis
      * @param string $name 数据名
      * @param int $value 增长值
      * @return false|int
+     * @throws RedisException
      */
-    public function inc($name, $value = 1)
+    public function inc(string $name, int $value = 1)
     {
-        return $this->handler->incrby($this->getKeyName($name), $value);
+        return $this->action('incrby', [$this->getKeyName($name), $value]);
     }
 
     /**
@@ -250,10 +264,11 @@ class Redis
      * @param string $name 数据名
      * @param int $value 减少值
      * @return false|int
+     * @throws RedisException
      */
-    public function dec($name, $value = 1)
+    public function dec(string $name, int $value = 1)
     {
-        return $this->handler->decrby($this->getKeyName($name), $value);
+        return $this->action('decrby', [$this->getKeyName($name), $value]);
     }
 
     /**
@@ -261,20 +276,22 @@ class Redis
      * @param string $name
      * @param string $value
      * @return bool
+     * @throws RedisException
      */
-    public function setnx($name, $value)
+    public function setnx(string $name, string $value): bool
     {
-        return $this->handler->setnx($this->getKeyName($name), $this->encode($value));
+        return $this->action('setnx', [$this->getKeyName($name), $this->encode($value)]);
     }
 
     /**
      * 删除数据
      * @param string $name 数据名
      * @return int
+     * @throws RedisException
      */
-    public function del($name)
+    public function del(string $name): int
     {
-        return $this->handler->del($this->getKeyName($name));
+        return $this->action('del', [$this->getKeyName($name)]);
     }
 
     /**
@@ -282,40 +299,43 @@ class Redis
      * @param string $key 键名
      * @param string|float $value 值
      * @return void
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function zAppend($key, $value)
+    public function zAppend(string $key, $value)
     {
         $key = $this->getKeyName($key);
-        $this->handler->zAdd($key, $this->handler->zCard($key), $value);
+        $this->action('zAdd', [$key, $this->action('zCard', [$key]), $value]);
     }
 
     /**
      * 返回有序集合的全部成员（分数为成员加入时的序号，第一个为0）
      * @param string $key 键名
      * @return array
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function zMembers($key)
+    public function zMembers(string $key): array
     {
         $key = $this->getKeyName($key);
-        return $this->handler->zRangeByScore($key, 0, $this->handler->zCard($key));
+        return $this->action('zRangeByScore', [$key, 0, $this->action('zCard', [$key])]);
     }
-    
+
     /**
      * 订阅给定的一个或多个频道
      * @param string[] $channels 频道名
      * @param string|array $callback array($instance, 'method_name') 方法必须为public
      * 该回调有3个参数：Redis实例，频道名，消息内容
      *
-     * @return mixed|null
+     * @return array|false
+     * @throws RedisException
      */
-    public function subscribe($channels, $callback)
+    public function subscribe(array $channels, $callback)
     {
         $channels = array_map(function ($channel) {
             return $this->getKeyName($channel);
         }, $channels);
-        $this->handler->subscribe($channels, $callback);
+        return $this->action('subscribe', [$channels, $callback]);
     }
 
     /**
@@ -325,13 +345,14 @@ class Redis
      * 该回调有3个参数：Redis实例，模式，频道名，消息内容
      *
      * @return mixed|null
+     * @throws RedisException
      */
-    public function psubscribe($patterns, $callback)
+    public function psubscribe(array $patterns, $callback)
     {
         $patterns = array_map(function ($pattern) {
             return $this->getKeyName($pattern);
         }, $patterns);
-        $this->handler->psubscribe($patterns, $callback);
+        return $this->action('psubscribe', [$patterns, $callback]);
     }
 
     /**
@@ -339,40 +360,43 @@ class Redis
      * @param string $channel 频道
      * @param string $message 消息内容
      * @return mixed|null
+     * @throws RedisException
      */
-    public function publish($channel, $message)
+    public function publish(string $channel, string $message)
     {
-        $this->handler->publish($this->getKeyName($channel), $message);
+        return $this->action('publish', [$this->getKeyName($channel), $message]);
     }
 
     /**
      * 通过集合删除数据
-     * @param string $setName 集合名
+     * @param string $set_name 集合名
      * @return int 完成数量
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function delBySet($setName = '')
+    public function delBySet(string $set_name = ''): int
     {
-        $count = $this->sCard($setName) ?: 0;
-        $list = $this->sMembers($setName) ?: [];
+        $count = $this->sCard($set_name) ?: 0;
+        $list = $this->sMembers($set_name) ?: [];
         foreach ($list as $item) {
             $this->del($item);
-            $this->sRem($setName, $item);
+            $this->sRem($set_name, $item);
         }
         return $count;
     }
 
     /**
      * 删除全部数据
-     * @param bool $ignorePrefix 忽略前缀
+     * @param bool $ignore_prefix 忽略前缀
      * @return bool
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function delAll($ignorePrefix = false)
+    public function delAll(bool $ignore_prefix = false): bool
     {
-        $dataList = $this->keys($ignorePrefix);
+        $dataList = $this->keys($ignore_prefix);
         foreach ($dataList as $item) {
-            $this->handler->del($item);
+            $this->action('del', [$item]);
         }
         return true;
     }
@@ -381,24 +405,26 @@ class Redis
      * 获取全部数据名
      * @param bool $ignorePrefix 忽略前缀
      * @return array
+     * @throws RedisException
      */
-    public function keys($ignorePrefix = false)
+    public function keys(bool $ignorePrefix = false): array
     {
-        return $this->handler->keys($ignorePrefix ? '*' : $this->getKeyName('*'));
+        return $this->action('keys', [$ignorePrefix ? '*' : $this->getKeyName('*')]);
     }
 
     /**
      * 获取全部数据
      * @param bool $ignorePrefix 忽略前缀
      * @return array
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function allData($ignorePrefix = false)
+    public function allData(bool $ignorePrefix = false): array
     {
         $keys = $this->keys($ignorePrefix);
         $ret = [];
         foreach ($keys as $key) {
-            $ret[$key] = $this->handler->get($key);
+            $ret[$key] = $this->action('get', [$key]);
         }
         return $ret;
     }
@@ -408,9 +434,10 @@ class Redis
      * @param string $name 锁标识
      * @param int $expire 锁过期时间
      * @return bool
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function lock($name, $expire = 5)
+    public function lock(string $name, int $expire = 5): bool
     {
         $name = 'lock:' . $name;
         $locked = $this->setnx($name, time() + $expire);
@@ -434,19 +461,66 @@ class Redis
      * 释放锁
      * @param string $name 锁标识
      * @return bool
+     * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
-    public function unlock($name)
+    public function unlock(string $name): bool
     {
         $this->del('lock:' . $name);
         return true;
     }
 
+    /**
+     * @throws RedisException
+     */
     public function __call($method, $args)
     {
         if (key_exists(0, $args) && is_scalar($args[0])) {
             $args[0] = $this->getKeyName($args[0]);
         }
-        return call_user_func_array([$this->handler, $method], $args);
+        return $this->action($method, $args);
+    }
+
+    /**
+     * 执行Redis方法，自动断线重连
+     * @param string $method 方法名
+     * @param array $args 参数
+     * @return mixed
+     * @throws RedisException
+     * @author fuyelk <fuyelk@fuyelk.com>
+     */
+    public function action(string $method, array $args)
+    {
+        try {
+            $res = $this->handler->$method(...$args);
+        } catch (\RedisException $e) {
+            // 连接异常，重新连接并重新执行任务
+            if (in_array($e->getMessage(), ['Redis server went away', 'Connection lost'])) {
+                $count = 0;
+
+                // 断线重连
+                while (true) {
+                    try {
+                        $this->connect();
+                    } catch (Exception $e) {
+                        // 记录连接失败次数，超过1000次，等待1秒
+                        if (++$count >= 1000) {
+                            $count = 0;
+                            sleep(1);
+                        }
+                        continue;
+                    }
+                    // 连接无异常，则跳出
+                    break;
+                }
+
+                // 重新执行任务
+                return $this->action($method, $args);
+            }
+
+            // 其他异常直接抛出
+            throw new RedisException($e->getMessage());
+        }
+        return $res;
     }
 }
