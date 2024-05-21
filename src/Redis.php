@@ -324,13 +324,13 @@ class Redis
     /**
      * 订阅给定的一个或多个频道
      * @param string[] $channels 频道名
-     * @param string|array $callback array($instance, 'method_name') 方法必须为public
+     * @param callable $callback
      * 该回调有3个参数：Redis实例，频道名，消息内容
      *
      * @return array|false
      * @throws RedisException
      */
-    public function subscribe(array $channels, $callback)
+    public function subscribe(array $channels, callable $callback)
     {
         $channels = array_map(function ($channel) {
             return $this->getKeyName($channel);
@@ -341,13 +341,13 @@ class Redis
     /**
      * 订阅一个或多个符合给定模式的频道
      * @param array $patterns 模式 以 * 作为匹配符，比如 user* 匹配所有以 user 开头的频道( user.register，user.login，user.logout 等)
-     * @param string|array $callback array($instance, 'method_name') 方法必须为public
+     * @param callable $callback
      * 该回调有3个参数：Redis实例，模式，频道名，消息内容
      *
      * @return mixed|null
      * @throws RedisException
      */
-    public function psubscribe(array $patterns, $callback)
+    public function psubscribe(array $patterns, callable $callback)
     {
         $patterns = array_map(function ($pattern) {
             return $this->getKeyName($pattern);
