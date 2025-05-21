@@ -155,19 +155,6 @@ class Redis
         } catch (Exception $e) {
             throw new RedisException('Redis 连接失败');
         }
-
-        // 清理锁
-        if (!$this->exists(md5('lock:lock_cleared'))) {
-            $this->set(md5('lock:lock_cleared'), 'This is the sign that fuyelk/redis lock has been cleared', 600); // 定时10分钟
-            $lockList = $this->sMembers('lock:all_locks') ?: [];
-            foreach ($lockList as $item) {
-                // 清理已过期超过1分钟的锁
-                if ($expireTime = $this->get($item) and is_numeric($expireTime) and $expireTime < strtotime('-1 minute')) {
-                    $this->del($item);
-                    $this->sRem('lock:all_locks', $item);
-                }
-            }
-        }
     }
 
     /**
@@ -430,35 +417,39 @@ class Redis
     }
 
     /**
-     * 获取锁
+     * 上锁
      * @param string $name 锁标识
-     * @param int $expire 锁过期时间
+     * @param int $expire 锁过期时间，单位：秒
      * @return bool
      * @throws RedisException
      * @author fuyelk <fuyelk@fuyelk.com>
      */
     public function lock(string $name, int $expire = 5): bool
     {
-        $name = 'lock:' . $name;
-        $locked = $this->setnx($name, time() + $expire);
+        $redisKey = 'lock:' . $name;
+        $locked = $this->setnx($redisKey, time() + $expire);
 
-        // 获取锁成功
+        // 上锁成功
         if ($locked) {
-            $this->sAdd('lock:all_locks', $name);
+            $this->expire($redisKey, $expire);
             return true;
         }
 
-        // 锁已过期则删除锁，重新获取
-        if (is_numeric($this->get($name)) && $this->get($name) < time()) {
-            $this->del($name);
-            return $this->setnx($name, time() + $expire);
+        // 上锁失败，检查旧锁是否过期
+        $expireTime = $this->get($redisKey);
+        if (is_numeric($expireTime) && $expireTime < time()) {
+            $this->del($redisKey);
+
+            $res = $this->setnx($redisKey, time() + $expire);
+            $this->expire($redisKey, $expire);
+            return $res;
         }
 
         return false;
     }
 
     /**
-     * 释放锁
+     * 解锁
      * @param string $name 锁标识
      * @return bool
      * @throws RedisException
